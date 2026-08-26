@@ -1,0 +1,19 @@
+# Large Allen Institute data files
+data/
+*.nwb
+
+# Python virtual environments
+.venv/
+.venv-1/
+
+# Python-generated files
+__pycache__/
+*.py[cod]
+
+# Jupyter-generated files
+.ipynb_checkpoints/
+
+# Editor and operating-system files
+.vscode/
+.DS_Store
+Thumbs.db
