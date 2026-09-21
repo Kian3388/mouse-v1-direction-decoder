@@ -1,0 +1,21 @@
+{
+  "direction": {
+    "accuracy": 0.8983333333333333,
+    "balanced_accuracy": 0.8983333333333333,
+    "macro_f1": 0.8981859422212953
+  },
+  "orientation": {
+    "accuracy": 0.9966666666666667,
+    "balanced_accuracy": 0.9966666666666666,
+    "macro_f1": 0.9966666481479423
+  },
+  "permutation_test": {
+    "observed_accuracy": 0.8983333333333333,
+    "null_mean_accuracy": 0.124675,
+    "null_std_accuracy": 0.014886221656223358,
+    "p_value": 0.004975124378109453,
+    "n_permutations": 200
+  },
+  "n_trials": 600,
+  "n_neurons": 261
+}
