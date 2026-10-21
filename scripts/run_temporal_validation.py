@@ -1,4 +1,6 @@
-
+import json
+import matplotlib.pyplot as plt
+from sklearn.metrics import ConfusionMatrixDisplay
 from pathlib import Path
 
 import h5py
@@ -88,3 +90,58 @@ print(classification_report(y_test, predictions))
 
 print("\nConfusion matrix:")
 print(confusion_matrix(y_test, predictions))
+
+
+# Save temporal validation results
+OUTPUT_DIR = PROJECT_ROOT / "results" / "temporal"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+# Save evaluation metrics
+metrics = {
+    "evaluation": "chronological_80_20_holdout",
+    "n_train_trials": int(len(y_train)),
+    "n_test_trials": int(len(y_test)),
+    "n_neurons": int(X.shape[1]),
+    "accuracy": float(accuracy_score(y_test, predictions)),
+    "balanced_accuracy": float(
+        balanced_accuracy_score(y_test, predictions)
+    ),
+}
+
+with open(OUTPUT_DIR / "metrics.json", "w", encoding="utf-8") as f:
+    json.dump(metrics, f, indent=2)
+
+# Save classification report
+report = classification_report(y_test, predictions)
+
+(OUTPUT_DIR / "classification_report.txt").write_text(
+    report,
+    encoding="utf-8"
+)
+
+# Save confusion matrix
+classes = np.unique(y)
+
+cm = confusion_matrix(
+    y_test,
+    predictions,
+    labels=classes
+)
+
+display = ConfusionMatrixDisplay(
+    confusion_matrix=cm,
+    display_labels=classes
+)
+
+display.plot(cmap="Blues", colorbar=False)
+plt.title("Chronological Holdout: Direction Decoding")
+plt.tight_layout()
+
+plt.savefig(
+    OUTPUT_DIR / "confusion_matrix.png",
+    dpi=200
+)
+
+plt.close()
+
+print("\nResults saved to:", OUTPUT_DIR)

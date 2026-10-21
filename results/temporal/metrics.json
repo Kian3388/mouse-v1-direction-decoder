@@ -1,0 +1,8 @@
+{
+  "evaluation": "chronological_80_20_holdout",
+  "n_train_trials": 480,
+  "n_test_trials": 120,
+  "n_neurons": 261,
+  "accuracy": 0.925,
+  "balanced_accuracy": 0.9251377734107997
+}
