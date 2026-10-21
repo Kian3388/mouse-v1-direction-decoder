@@ -1,44 +1,118 @@
 # Mouse V1 Visual Direction Decoder
 
-Can a linear decoder identify a visual stimulus from the activity of a neural population?
+**Neural population coding, stimulus decoding, and generalization in mouse primary visual cortex**
 
-This self-directed computational-neuroscience project uses Allen Institute Visual Coding Neuropixels data to decode eight drifting-grating direction labels from spike counts recorded in mouse primary visual cortex (VISp). The model is a standardized multiclass logistic-regression pipeline.
+Can a linear decoder identify the direction of a visual stimulus from the activity of a neural population? How does decoding accuracy change with the number of neurons observed, and does performance generalize to later recording periods?
 
-## Baseline result
+This self-directed computational neuroscience project uses Allen Institute Visual Coding Neuropixels recordings to investigate these questions using spike-count features from mouse primary visual cortex (VISp).
 
-| Quantity | Value |
-|---|---:|
-| Allen session | `757216464` |
+The project evaluates a standardized multiclass logistic regression decoder using randomized cross-validation, neuron-population subsampling, permutation testing, and chronological holdout validation.
+
+## 1. Dataset
+
+| Property | Value |
+|---|---|
+| Source | Allen Institute Brain Observatory Visual Coding Neuropixels |
+| Session ID | `757216464` |
+| Brain region | Primary visual cortex (`VISp`) |
 | Valid stimulus presentations | 600 |
-| VISp units | 261 |
-| Direction classes | 8 |
-| Chance accuracy | 12.5% |
-| Holdout accuracy | **91.7%** |
+| Recorded VISp units used | 261 |
+| Stimulus direction classes | 8 |
+| Directions | 0°, 45°, 90°, 135°, 180°, 225°, 270°, 315° |
+| Chance-level accuracy | 12.5% |
 
-The 91.7% result comes from **one stratified 80/20 split** (`random_state=42`). It is a baseline, not a cross-validated estimate of generalization. No hyperparameter search was performed on the test set.
+The dataset contains extracellular electrophysiological recordings obtained during visual stimulus presentations.
 
-![Cross-validated confusion matrix is not yet available; this is the single-split baseline confusion matrix.](results/confusion_matrix.png)
+The NWB field used as the classification target is named `orientation`. Its eight values are treated here as drifting-grating direction labels. This interpretation should be verified against the official stimulus metadata.
 
-The most prominent errors in this split occurred between labels separated by 180° (especially 45° and 225°). That observation motivates a planned comparison of eight direction classes with four orientation-axis classes.
+Raw NWB recordings are not redistributed in this repository.
 
-## Cross-Validated Results
+## 2. Research Objectives
 
-Five-fold stratified cross-validation was used to generate out-of-fold predictions for every trial.
+This project investigates three questions:
 
-| Task | Accuracy | Balanced accuracy | Macro-F1 | Chance |
-|---|---:|---:|---:|---:|
-| Eight-direction decoding | **89.83%** | 89.83% | 89.82% | 12.5% |
-| Four-orientation decoding | **99.67%** | 99.67% | 99.67% | 25.0% |
+1. How accurately can visual stimulus direction be decoded from mouse V1 population spike counts?
+2. How does decoding performance change as the number of observed neurons increases?
+3. How well does a decoder trained on earlier stimulus presentations generalize to later presentations?
 
-The direction decoder performed far above a shuffled-label baseline. Across 200 label permutations, mean null accuracy was 12.47% (SD 1.49%). None of the permuted scores reached the observed accuracy, giving an empirical p-value of 0.00498.
+A secondary analysis compares decoding of eight motion-direction labels with four orientation-axis labels.
+
+## 3. Methodology
+
+### Neural feature extraction
+
+Stimulus presentation times and labels are extracted from the NWB recording using `h5py`.
+
+Units are assigned to brain regions by matching their peak-channel identifiers with the Allen channel metadata.
+
+Only units assigned to `VISp` are retained.
+
+For each stimulus presentation, spikes are counted within the presentation interval for every selected neuron.
+
+This produces a feature matrix:
+
+- `X`: 600 trials × 261 neurons
+- `y`: 600 stimulus-direction labels
+
+Each feature represents the number of spikes recorded from one neuron during one stimulus presentation.
+
+### Classification model
+
+The decoder uses a scikit-learn pipeline consisting of:
+
+- `StandardScaler`
+- `LogisticRegression(max_iter=3000, random_state=42)`
+
+Standardization is performed within each training fold or training partition, preventing information from the held-out observations from influencing the fitted scaling parameters.
+
+No neural network architecture or deep learning model is required.
+
+### Randomized cross-validation
+
+Five-fold stratified cross-validation is used to generate out-of-fold predictions for all 600 trials.
+
+The implementation uses `StratifiedKFold` with shuffled trials and a fixed random seed.
+
+Performance is evaluated using accuracy, balanced accuracy, macro-F1, and confusion matrices.
+
+### Chronological holdout
+
+A separate evaluation trains the model on the first 480 stimulus presentations and tests it on the final 120 presentations.
+
+The script verifies that the presentation timestamps are chronologically ordered and that the stimulus labels match the reconstructed feature matrix.
+
+This experiment evaluates performance on a later portion of the same recording session.
+
+It does not establish generalization across different animals or recording sessions.
+
+## 4. Results
+
+### Direction and orientation decoding
+
+| Evaluation | Accuracy | Balanced accuracy | Macro-F1 |
+|---|---:|---:|---:|
+| Eight-direction, randomized five-fold CV | **89.83%** | 89.83% | 89.82% |
+| Four-orientation, randomized five-fold CV | **99.67%** | 99.67% | 99.67% |
+| Eight-direction, original random 80/20 holdout | **91.67%** | — | — |
+| Eight-direction, chronological 80/20 holdout | **92.50%** | 92.51% | — |
+
+The original randomized holdout used a stratified 80/20 split with `random_state=42`.
+
+The chronological evaluation correctly classified 111 of 120 held-out presentations.
+
+The randomized cross-validation and chronological holdout use different training and testing partitions. Their accuracy estimates should not be interpreted as directly comparable measurements of improvement.
 
 ![Out-of-fold direction confusion matrix](results/extended/direction_confusion_matrix.png)
 
 ![Out-of-fold orientation confusion matrix](results/extended/orientation_confusion_matrix.png)
 
-## Population-Size Scaling
+![Chronological holdout confusion matrix](results/temporal/confusion_matrix.png)
 
-Direction-decoding accuracy increased consistently as more VISp units were included. Each population size was evaluated using 20 independently sampled neuron subsets with five-fold cross-validation.
+### Population-size scaling
+
+To investigate how the number of recorded neurons influences decoding performance, subsets of VISp units were sampled without replacement.
+
+Each population size was evaluated over 20 repeated neuron-subset selections using five-fold stratified cross-validation.
 
 | VISp units | Mean accuracy | Standard deviation |
 |---:|---:|---:|
@@ -50,45 +124,68 @@ Direction-decoding accuracy increased consistently as more VISp units were inclu
 | 200 | 86.4% | 1.4% |
 | 261 | 88.6% | 1.0% |
 
-The monotonic increase indicates that direction information is distributed across the VISp population rather than being carried by only a few sampled units.
+Accuracy increased with the number of sampled neurons, with diminishing gains at larger population sizes.
+
+These results are consistent with the presence of decodable stimulus information across neural populations. They do not independently establish how information is distributed or whether particular neurons are causally necessary.
+
+Repeated neuron subsets are not independent biological recordings.
 
 ![Direction decoding by population size](results/extended/population_size_curve.png)
 
-## Analysis pipeline
+### Permutation testing
 
-1. Read drifting-grating presentation times and labels from the NWB file with `h5py`.
-2. Remove presentations with undefined labels.
-3. Map unit peak channels to Allen structure acronyms and retain `VISp` units.
-4. Count each unit's spikes during each stimulus presentation.
-5. Construct a `600 × 261` trial-by-neuron feature matrix.
-6. Fit `StandardScaler` and multiclass `LogisticRegression` on the training set only.
-7. Evaluate holdout accuracy and the confusion matrix.
+A label-permutation analysis was performed using 200 shuffled-label evaluations.
 
-The NWB field used as the target is named `orientation`; throughout this project, its eight values (0° through 315°) are treated as drifting-grating direction labels.
+| Statistic | Result |
+|---|---:|
+| Observed accuracy | 89.83% |
+| Mean null accuracy | 12.47% |
+| Null standard deviation | 1.49 percentage points |
+| Empirical p-value | 0.00498 |
 
-## Data checks
+None of the 200 shuffled-label accuracies equaled or exceeded the observed accuracy.
 
-All eight labels contain 75 usable presentations:
+The empirical p-value was calculated using a finite-sample correction.
 
-![Number of presentations for each direction label](results/direction_counts.png)
+The test provides evidence against a trial-exchangeable shuffled-label null hypothesis. It does not independently rule out temporal or experimental confounding.
 
-The distribution below summarizes mean spike counts per presentation across the 261 selected VISp units:
+### Chronological generalization
 
-![Distribution of mean spike counts per neuron](results/mean_spikes_per_neuron.png)
+The chronological holdout experiment produced:
 
-## Repository layout
+| Metric | Result |
+|---|---:|
+| Training trials | 480 |
+| Testing trials | 120 |
+| Correct predictions | 111 |
+| Accuracy | 92.50% |
+| Balanced accuracy | 92.51% |
 
+Strong performance on later trials provides an additional within-session robustness check.
+
+The experiment does not eliminate all possible temporal confounding and does not test generalization across recording sessions.
+
+The results are saved in `results/temporal/`.
+
+## 5. Repository Structure
 ```text
 mouse-v1-direction-decoder/
 ├── notebooks/
-│   └── analysis.ipynb
+│   ├── analysis.ipynb
+│   └── explorations.ipynb
 ├── scripts/
-│   └── run_extended_analysis.py
-├── src/mouse_v1_decoder/
-│   └── evaluation.py
+│   ├── prepare_data.py
+│   ├── run_extended_analysis.py
+│   └── run_temporal_validation.py
+├── src/
+│   └── mouse_v1_decoder/
+│       ├── __init__.py
+│       └── evaluation.py
 ├── tests/
 │   └── test_evaluation.py
 ├── results/
+│   ├── extended/
+│   ├── temporal/
 │   ├── confusion_matrix.png
 │   ├── direction_counts.png
 │   └── mean_spikes_per_neuron.png
@@ -98,25 +195,43 @@ mouse-v1-direction-decoder/
 └── requirements.txt
 ```
 
-## Reproduce the notebook
+Raw neural recordings and locally generated feature matrices are excluded from version control.
 
-This project was developed with Python 3.11. Create an environment and install the pinned dependencies:
+## 6. Reproducing the Analysis
+
+### Requirements
+
+Python 3.11 is recommended.
+
+Create and activate a virtual environment:
 
 ```bash
 python -m venv .venv
-
-# macOS/Linux
-source .venv/bin/activate
-
-# Windows PowerShell
-# .venv\Scripts\Activate.ps1
-
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-jupyter notebook notebooks/analysis.ipynb
 ```
 
-The Allen NWB file is about 3 GB and is intentionally excluded from GitHub. Arrange the local files as follows:
+On Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+On macOS or Linux:
+
+```bash
+source .venv/bin/activate
+```
+
+Install the dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+### Prepare the dataset
+
+Obtain Allen Visual Coding Neuropixels session `757216464` and its corresponding channel metadata.
+
+Arrange the files locally as:
 
 ```text
 data/
@@ -125,31 +240,80 @@ data/
     └── session_757216464.nwb
 ```
 
-After the notebook constructs `X` and `y`, run its final export cell. Then launch the extended analysis:
+Generate the trial-by-neuron spike-count matrix:
 
 ```bash
-python scripts/run_extended_analysis.py
+python scripts/prepare_data.py --data-dir data
 ```
 
-That command produces:
+The script generates:
 
-- Five-fold out-of-fold metrics and confusion matrices for direction and orientation-axis labels
-- A label-permutation baseline with a finite-sample p-value
-- Repeated neuron-subsampling estimates across population sizes
-- Machine-readable JSON and CSV results under `results/extended/`
+```text
+data/processed/spike_counts.npz
+```
 
-Run the synthetic unit tests with:
+The processed file contains arrays `X` and `y`.
+
+### Run cross-validated experiments
+
+```bash
+python scripts/run_extended_analysis.py --permutations 200 --repeats 20
+```
+
+This produces:
+
+- Direction-decoding metrics
+- Orientation-decoding metrics
+- Permutation-test statistics
+- Population-size results
+- Confusion matrices
+
+Results are saved under `results/extended/`.
+
+### Run chronological validation
+
+```bash
+python scripts/run_temporal_validation.py --data-dir data
+```
+
+This trains the decoder on the first 80% of trials and evaluates it on the final 20%.
+
+Results are saved under `results/temporal/`, including:
+
+- `metrics.json`
+- `classification_report.txt`
+- `confusion_matrix.png`
+
+### Run automated tests
 
 ```bash
 python -m unittest discover -s tests
 ```
 
-## Limitations and next experiments
+## 7. Limitations
 
-- Run and report the included cross-validation, permutation, population-size, and orientation analyses on the local NWB-derived feature matrix.
-- Test whether conclusions generalize across recording sessions.
-- Investigate whether trial ordering or slow session drift inflates random-fold performance by comparing blocked or time-aware splits.
+This study has several important limitations:
 
-## Acknowledgment
+1. **Single recording session:** The analysis uses one Allen Neuropixels session. Results may not generalize to other animals or recording sessions.
+2. **Observational decoding:** Classification performance demonstrates that information is decodable from recorded neural activity, not that particular neurons are causally necessary for visual perception.
+3. **Randomized cross-validation:** Randomly distributed trials may share recording conditions or temporal dependencies.
+4. **Chronological validation:** A single early-to-late split provides a robustness check but does not eliminate all possible temporal confounding.
+5. **Population subsampling:** Repeated neuron subsets from one recording do not constitute independent biological replicates.
+6. **Linear classification:** Logistic regression measures linearly decodable information and does not characterize all possible neural representations.
+7. **Permutation assumptions:** Random label permutation assumes trial exchangeability under the tested null hypothesis.
 
-Data come from the Allen Institute Brain Observatory Visual Coding Neuropixels dataset. The raw data are not redistributed in this repository.
+## 8. Interpretation
+
+The results demonstrate that a linear classifier can decode drifting-grating stimulus labels from population spike counts recorded in mouse V1 under the evaluated conditions.
+
+Decoding accuracy increases as more recorded neurons are included, and high performance is retained in a chronological holdout experiment.
+
+These findings are consistent with established principles of neural population coding. This project is intended as a reproducible computational investigation rather than a claim of discovering a new neural coding mechanism.
+
+## 9. Acknowledgments
+
+Neural recording data were obtained from the Allen Institute Brain Observatory Visual Coding Neuropixels dataset.
+
+The original recordings and metadata are credited to the Allen Institute.
+
+Raw neural data are not redistributed in this repository.
