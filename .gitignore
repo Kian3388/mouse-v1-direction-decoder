@@ -1,12 +1,16 @@
-# Downloaded data
-data/
-*.nwb
 
-# Python environments and caches
-.venv/
+# Python virtual environments
 venv/
+.venv/
+.venv-*/
+env/
+
+# Python cache and build files
 __pycache__/
 *.py[cod]
+*.egg-info/
+build/
+dist/
 
 # Jupyter
 .ipynb_checkpoints/
@@ -16,3 +20,20 @@ __pycache__/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Raw neuroscience datasets
+*.nwb
+*.h5
+*.hdf5
+
+# Locally generated neural data
+data/raw/
+data/processed/
+data/session_*/
+
+# Downloaded metadata
+data/channels.csv
+
+# Temporary files
+*.log
+*.tmp
